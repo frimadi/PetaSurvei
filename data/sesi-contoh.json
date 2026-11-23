@@ -3,9 +3,65 @@
   "petugas": "Petugas Contoh",
   "tanggal": "2026-11-23",
   "titik": [
-    { "id": "20261123-090500-001", "foto": "contoh-1.jpg", "lat": -2.5400, "lon": 112.9500, "bearing": 90,  "ruas": "Jl. Contoh A", "catatan": "Awal ruas", "waktu": "2026-11-23T09:05:00+07:00" },
-    { "id": "20261123-091200-002", "foto": "contoh-2.jpg", "lat": -2.5405, "lon": 112.9520, "bearing": 100, "ruas": "Jl. Contoh A", "catatan": "", "waktu": "2026-11-23T09:12:00+07:00" },
-    { "id": "20261123-092300-003", "foto": "contoh-3.jpg", "lat": -2.5415, "lon": 112.9540, "bearing": 135, "ruas": "Jl. Contoh A", "catatan": "Tikungan", "waktu": "2026-11-23T09:23:00+07:00" },
-    { "id": "20261123-093800-004", "foto": "contoh-4.jpg", "lat": -2.5435, "lon": 112.9550, "bearing": 200, "ruas": "Jl. Contoh B", "catatan": "Jembatan kecil", "waktu": "2026-11-23T09:38:00+07:00" }
+    {
+      "id": "20261123-090500-001",
+      "foto": "contoh-1.jpg",
+      "lat": -2.54,
+      "lon": 112.95,
+      "bearing": 90,
+      "ruas": "Jl. Contoh A",
+      "catatan": "Awal ruas",
+      "waktu": "2026-11-23T09:05:00+07:00"
+    },
+    {
+      "id": "20261123-091200-002",
+      "foto": "contoh-2.jpg",
+      "lat": -2.5405,
+      "lon": 112.952,
+      "bearing": 100,
+      "ruas": "Jl. Contoh A",
+      "catatan": "",
+      "waktu": "2026-11-23T09:12:00+07:00"
+    },
+    {
+      "id": "20261123-092300-003",
+      "foto": "contoh-3.jpg",
+      "lat": -2.5415,
+      "lon": 112.954,
+      "bearing": 135,
+      "ruas": "Jl. Contoh A",
+      "catatan": "Tikungan",
+      "waktu": "2026-11-23T09:23:00+07:00"
+    },
+    {
+      "id": "20261123-093800-004",
+      "foto": "contoh-4.jpg",
+      "lat": -2.5435,
+      "lon": 112.955,
+      "bearing": 200,
+      "ruas": "Jl. Contoh B",
+      "catatan": "Jembatan kecil",
+      "waktu": "2026-11-23T09:38:00+07:00"
+    },
+    {
+      "id": "20261123-092400-005",
+      "foto": "contoh-5.jpg",
+      "lat": -2.54151,
+      "lon": 112.95401,
+      "bearing": 315,
+      "ruas": "Jl. Contoh A",
+      "catatan": "Arah sebaliknya",
+      "waktu": "2026-11-23T09:24:00+07:00"
+    },
+    {
+      "id": "20261123-092500-006",
+      "foto": "contoh-6.jpg",
+      "lat": -2.54149,
+      "lon": 112.95399,
+      "bearing": 45,
+      "ruas": "Jl. Contoh A",
+      "catatan": "Arah samping",
+      "waktu": "2026-11-23T09:25:00+07:00"
+    }
   ]
 }

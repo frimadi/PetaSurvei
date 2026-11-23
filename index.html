@@ -6,6 +6,8 @@
 <meta name="robots" content="noindex">
 <title>Peta Survei Jalan</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
 <style>
   :root { --ink:#1d2b33; --paper:#f6f7f4; --road:#2f6f6a; --mark:#d9822b; }
   * { box-sizing: border-box; }
@@ -18,6 +20,20 @@
   .pin { width: 44px; height: 44px; }
   .pin svg { width: 44px; height: 44px; overflow: visible; }
   .popup img { display: block; width: 240px; max-width: 100%; border-radius: 4px; margin-bottom: 6px; }
+  .popup img { cursor: zoom-in; }
+  .popup em { display: block; font-size: 12px; color: #55656d; margin-top: 2px; }
+  #lb { position: fixed; inset: 0; z-index: 2000; background: rgba(10,16,20,.94); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; }
+  #lb[hidden] { display: none; }
+  #lb figure { margin: 0; text-align: center; max-width: 100%; }
+  #lb img { max-width: 100%; max-height: 78vh; object-fit: contain; border-radius: 4px; }
+  #lb figcaption { color: #fff; margin-top: 10px; font-size: 14px; }
+  #lb button { position: absolute; background: rgba(255,255,255,.14); color: #fff; border: 0; font-size: 30px; line-height: 1; width: 48px; height: 64px; border-radius: 6px; cursor: pointer; }
+  #lb button:hover:not(:disabled) { background: rgba(255,255,255,.3); }
+  #lb button:disabled { opacity: .25; cursor: default; }
+  #lb button:focus-visible { outline: 3px solid var(--mark); }
+  #prev { left: 8px; top: 50%; transform: translateY(-50%); }
+  #next { right: 8px; top: 50%; transform: translateY(-50%); }
+  #tutup { right: 8px; top: 8px; height: 48px !important; font-size: 22px !important; }
   .popup b { display: block; font-size: 15px; }
   .popup small { color: #55656d; }
   .pesan { position: absolute; z-index: 1000; left: 50%; top: 70px; transform: translateX(-50%); background: #fff; border-left: 4px solid var(--mark); padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); max-width: 90%; }
@@ -30,17 +46,26 @@
   <span id="info">Memuat data…</span>
 </header>
 <div id="map"></div>
+<div id="lb" hidden>
+  <button id="tutup" aria-label="Tutup">✕</button>
+  <button id="prev" aria-label="Foto sebelumnya">‹</button>
+  <figure><img id="lbimg" alt=""><figcaption id="lbcap"></figcaption></figure>
+  <button id="next" aria-label="Foto berikutnya">›</button>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
-// Sumber data. Nanti bisa diganti lewat alamat, misalnya ?sumber=data/sesi-lain.json
-const SUMBER = new URLSearchParams(location.search).get('sumber') || 'data/sesi-contoh.json';
+// Sumber data. Bisa lebih dari satu, dipisah koma: ?sumber=data/a.json,data/b.json
+const SUMBER = (new URLSearchParams(location.search).get('sumber') || 'data/sesi-contoh.json').split(',');
 
 const peta = L.map('map').setView([-2.54, 112.95], 15);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution: '© OpenStreetMap'
-}).addTo(peta);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(peta);
+const grup = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false });
+peta.addLayer(grup);
 
-// Penanda berbentuk kerucut: bagian runcing menunjuk arah foto (0° = utara).
+const fmt = w => new Date(w).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+
+// Penanda kerucut: bagian runcing menunjuk arah foto (0° = utara).
 function ikon(bearing) {
   const svg = `<svg viewBox="-22 -22 44 44" style="transform:rotate(${bearing}deg)">
     <path d="M0 0 L-12 -20 A23 23 0 0 1 12 -20 Z" fill="#d9822b" fill-opacity=".55" stroke="#d9822b" stroke-width="1.5"/>
@@ -48,37 +73,85 @@ function ikon(bearing) {
   return L.divIcon({ html: svg, className: 'pin', iconSize: [44, 44], iconAnchor: [22, 22] });
 }
 
-function isiPopup(t, sesi) {
-  const waktu = new Date(t.waktu).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+let urutan = {}, aktif = null;   // urutan: ruas -> daftar titik berurutan waktu
+
+function isiPopup(t) {
   const div = document.createElement('div');
   div.className = 'popup';
-  div.innerHTML = `<img alt="Foto di ${t.ruas}"><b></b><small></small>`;
-  div.querySelector('img').src = 'foto/' + t.foto;
+  div.innerHTML = '<img alt=""><b></b><small></small><em>Ketuk foto untuk memperbesar</em>';
+  const img = div.querySelector('img');
+  img.src = 'foto/' + t.foto;
+  img.alt = 'Foto di ' + t.ruas;
+  img.onclick = () => buka(t);
   div.querySelector('b').textContent = t.ruas;
-  div.querySelector('small').textContent = `${waktu} · arah ${t.bearing}° · ${sesi.petugas}` + (t.catatan ? ` · ${t.catatan}` : '');
+  div.querySelector('small').textContent = `${fmt(t.waktu)} · arah ${t.bearing}° · ${t._sesi.petugas}` + (t.catatan ? ` · ${t.catatan}` : '');
   return div;
 }
 
-fetch(SUMBER)
-  .then(r => { if (!r.ok) throw new Error('Berkas ' + SUMBER + ' tidak ditemukan'); return r.json(); })
-  .then(sesi => {
-    const titik = sesi.titik || [];
-    const batas = [];
-    titik.forEach(t => {
-      L.marker([t.lat, t.lon], { icon: ikon(t.bearing) }).addTo(peta).bindPopup(() => isiPopup(t, sesi));
-      batas.push([t.lat, t.lon]);
-    });
-    if (batas.length > 1) L.polyline(batas, { color: '#2f6f6a', weight: 3, opacity: .6, dashArray: '6 6' }).addTo(peta);
-    if (batas.length) peta.fitBounds(batas, { padding: [50, 50], maxZoom: 17 });
-    document.getElementById('info').textContent = `${titik.length} titik foto · ${sesi.tanggal} · ${sesi.petugas}`;
-  })
-  .catch(e => {
-    document.getElementById('info').textContent = '';
-    const p = document.createElement('div');
-    p.className = 'pesan';
-    p.textContent = 'Data tidak bisa dimuat: ' + e.message + '. Jika membuka berkas langsung dari komputer, gunakan GitHub Pages atau server lokal.';
-    document.body.appendChild(p);
+// --- Tampilan besar ---
+const lb = document.getElementById('lb'), lbimg = document.getElementById('lbimg'),
+      lbcap = document.getElementById('lbcap'), prev = document.getElementById('prev'), next = document.getElementById('next');
+
+function tampil() {
+  const a = urutan[aktif.ruas], i = a.indexOf(aktif);
+  lbimg.src = 'foto/' + aktif.foto;
+  lbimg.alt = 'Foto di ' + aktif.ruas;
+  lbcap.textContent = `${aktif.ruas} · foto ${i + 1} dari ${a.length} · arah ${aktif.bearing}° · ${fmt(aktif.waktu)}`;
+  prev.disabled = i === 0;
+  next.disabled = i === a.length - 1;
+}
+function buka(t) { aktif = t; tampil(); lb.hidden = false; peta.closePopup(); }
+function geser(d) {
+  const a = urutan[aktif.ruas], j = a.indexOf(aktif) + d;
+  if (j >= 0 && j < a.length) { aktif = a[j]; tampil(); }
+}
+function tutup() {
+  lb.hidden = true;
+  grup.zoomToShowLayer(aktif._m, () => aktif._m.openPopup());   // peta menyusul ke foto terakhir yang dilihat
+}
+prev.onclick = () => geser(-1);
+next.onclick = () => geser(1);
+document.getElementById('tutup').onclick = tutup;
+lb.onclick = e => { if (e.target === lb) tutup(); };
+document.addEventListener('keydown', e => {
+  if (lb.hidden) return;
+  if (e.key === 'ArrowLeft') geser(-1);
+  else if (e.key === 'ArrowRight') geser(1);
+  else if (e.key === 'Escape') tutup();
+});
+let x0 = null;
+lb.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+lb.addEventListener('touchend', e => {
+  if (x0 === null) return;
+  const dx = e.changedTouches[0].clientX - x0; x0 = null;
+  if (Math.abs(dx) > 50) geser(dx < 0 ? 1 : -1);
+});
+
+// --- Memuat data ---
+Promise.all(SUMBER.map(s => fetch(s.trim()).then(r => {
+  if (!r.ok) throw new Error('Berkas ' + s + ' tidak ditemukan');
+  return r.json();
+}))).then(daftar => {
+  const semua = [];
+  daftar.forEach(sesi => (sesi.titik || []).forEach(t => { t._sesi = sesi; semua.push(t); }));
+  semua.forEach(t => (urutan[t.ruas] = urutan[t.ruas] || []).push(t));
+  Object.values(urutan).forEach(a => a.sort((p, q) => new Date(p.waktu) - new Date(q.waktu)));
+  Object.values(urutan).forEach(a => {
+    if (a.length > 1) L.polyline(a.map(t => [t.lat, t.lon]), { color: '#2f6f6a', weight: 3, opacity: .6, dashArray: '6 6' }).addTo(peta);
   });
+  semua.forEach(t => {
+    t._m = L.marker([t.lat, t.lon], { icon: ikon(t.bearing) }).bindPopup(() => isiPopup(t));
+    grup.addLayer(t._m);
+  });
+  if (semua.length) peta.fitBounds(semua.map(t => [t.lat, t.lon]), { padding: [50, 50], maxZoom: 17 });
+  document.getElementById('info').textContent = `${semua.length} titik foto · ${Object.keys(urutan).length} ruas`;
+}).catch(e => {
+  document.getElementById('info').textContent = '';
+  const p = document.createElement('div');
+  p.className = 'pesan';
+  p.textContent = 'Data tidak bisa dimuat: ' + e.message + '. Jika membuka berkas langsung dari komputer, gunakan GitHub Pages atau server lokal.';
+  document.body.appendChild(p);
+});
 </script>
 </body>
 </html>
