@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Peta Survei Jalan</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root { --ink:#1d2b33; --paper:#f6f7f4; --road:#2f6f6a; --mark:#d9822b; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; font: 15px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--paper); }
+  header { padding: 10px 14px; background: var(--ink); color: #fff; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  header span { font-size: 13px; opacity: .75; }
+  #map { flex: 1; min-height: 0; }
+  .pin { width: 44px; height: 44px; }
+  .pin svg { width: 44px; height: 44px; overflow: visible; }
+  .popup img { display: block; width: 240px; max-width: 100%; border-radius: 4px; margin-bottom: 6px; }
+  .popup b { display: block; font-size: 15px; }
+  .popup small { color: #55656d; }
+  .pesan { position: absolute; z-index: 1000; left: 50%; top: 70px; transform: translateX(-50%); background: #fff; border-left: 4px solid var(--mark); padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); max-width: 90%; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Peta Survei Jalan</h1>
+  <span id="info">Memuat data…</span>
+</header>
+<div id="map"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+// Sumber data. Nanti bisa diganti lewat alamat, misalnya ?sumber=data/sesi-lain.json
+const SUMBER = new URLSearchParams(location.search).get('sumber') || 'data/sesi-contoh.json';
+
+const peta = L.map('map').setView([-2.54, 112.95], 15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '© OpenStreetMap'
+}).addTo(peta);
+
+// Penanda berbentuk kerucut: bagian runcing menunjuk arah foto (0° = utara).
+function ikon(bearing) {
+  const svg = `<svg viewBox="-22 -22 44 44" style="transform:rotate(${bearing}deg)">
+    <path d="M0 0 L-12 -20 A23 23 0 0 1 12 -20 Z" fill="#d9822b" fill-opacity=".55" stroke="#d9822b" stroke-width="1.5"/>
+    <circle r="5" fill="#1d2b33" stroke="#fff" stroke-width="2"/></svg>`;
+  return L.divIcon({ html: svg, className: 'pin', iconSize: [44, 44], iconAnchor: [22, 22] });
+}
+
+function isiPopup(t, sesi) {
+  const waktu = new Date(t.waktu).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+  const div = document.createElement('div');
+  div.className = 'popup';
+  div.innerHTML = `<img alt="Foto di ${t.ruas}"><b></b><small></small>`;
+  div.querySelector('img').src = 'foto/' + t.foto;
+  div.querySelector('b').textContent = t.ruas;
+  div.querySelector('small').textContent = `${waktu} · arah ${t.bearing}° · ${sesi.petugas}` + (t.catatan ? ` · ${t.catatan}` : '');
+  return div;
+}
+
+fetch(SUMBER)
+  .then(r => { if (!r.ok) throw new Error('Berkas ' + SUMBER + ' tidak ditemukan'); return r.json(); })
+  .then(sesi => {
+    const titik = sesi.titik || [];
+    const batas = [];
+    titik.forEach(t => {
+      L.marker([t.lat, t.lon], { icon: ikon(t.bearing) }).addTo(peta).bindPopup(() => isiPopup(t, sesi));
+      batas.push([t.lat, t.lon]);
+    });
+    if (batas.length > 1) L.polyline(batas, { color: '#2f6f6a', weight: 3, opacity: .6, dashArray: '6 6' }).addTo(peta);
+    if (batas.length) peta.fitBounds(batas, { padding: [50, 50], maxZoom: 17 });
+    document.getElementById('info').textContent = `${titik.length} titik foto · ${sesi.tanggal} · ${sesi.petugas}`;
+  })
+  .catch(e => {
+    document.getElementById('info').textContent = '';
+    const p = document.createElement('div');
+    p.className = 'pesan';
+    p.textContent = 'Data tidak bisa dimuat: ' + e.message + '. Jika membuka berkas langsung dari komputer, gunakan GitHub Pages atau server lokal.';
+    document.body.appendChild(p);
+  });
+</script>
+</body>
+</html>
