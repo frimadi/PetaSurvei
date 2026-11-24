@@ -37,6 +37,12 @@
   .popup b { display: block; font-size: 15px; }
   .popup small { color: #55656d; }
   .pesan { position: absolute; z-index: 1000; left: 50%; top: 70px; transform: translateX(-50%); background: #fff; border-left: 4px solid var(--mark); padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); max-width: 90%; }
+  #filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 14px; background: #fff; border-bottom: 1px solid #d5d9d3; }
+  #filter select, #filter input, #filter button { font: inherit; padding: 6px 8px; border: 1px solid #b9c0bb; border-radius: 6px; background: #fff; color: var(--ink); min-width: 0; }
+  #filter select:disabled { opacity: .45; }
+  #cari { flex: 1 1 170px; }
+  #reset { border-color: var(--road) !important; color: var(--road) !important; cursor: pointer; }
+  #hitung { flex-basis: 100%; font-size: 13px; color: #55656d; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -45,6 +51,15 @@
   <h1>Peta Survei Jalan</h1>
   <span id="info">Memuat data…</span>
 </header>
+<div id="filter">
+  <select id="fTahun" aria-label="Tahun"></select>
+  <select id="fBulan" aria-label="Bulan"></select>
+  <select id="fTanggal" aria-label="Tanggal"></select>
+  <input id="cari" type="search" list="daftarRuas" placeholder="Cari nama jalan…" aria-label="Cari nama jalan" autocomplete="off">
+  <datalist id="daftarRuas"></datalist>
+  <button id="reset" type="button">Reset</button>
+  <span id="hitung" aria-live="polite"></span>
+</div>
 <div id="map"></div>
 <div id="lb" hidden>
   <button id="tutup" aria-label="Tutup">✕</button>
@@ -56,12 +71,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
 // Sumber data. Bisa lebih dari satu, dipisah koma: ?sumber=data/a.json,data/b.json
-const SUMBER = (new URLSearchParams(location.search).get('sumber') || 'data/sesi-contoh.json').split(',');
+const SUMBER = (new URLSearchParams(location.search).get('sumber') || 'data/sesi-contoh.json,data/sesi-contoh-2.json').split(',');
 
 const peta = L.map('map').setView([-2.54, 112.95], 15);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(peta);
 const grup = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false });
 peta.addLayer(grup);
+const garis = L.layerGroup().addTo(peta);   // garis putus-putus antar foto dalam satu ruas
 
 const fmt = w => new Date(w).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -127,24 +143,86 @@ lb.addEventListener('touchend', e => {
   if (Math.abs(dx) > 50) geser(dx < 0 ? 1 : -1);
 });
 
+// --- Filter ---
+const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const semua = [];
+const $ = id => document.getElementById(id);
+const fTahun = $('fTahun'), fBulan = $('fBulan'), fTanggal = $('fTanggal'), cari = $('cari');
+
+// Tahun/bulan/tanggal diambil dari teks waktu apa adanya (jam lokal saat foto diambil, tanpa konversi zona).
+const tgl = t => ({ y: String(t.waktu).slice(0, 4), m: String(t.waktu).slice(5, 7), d: String(t.waktu).slice(8, 10) });
+const unik = (arr, f) => [...new Set(arr.map(f))].sort();
+
+function isiSelect(sel, teksSemua, opsi, label) {
+  const lama = sel.value;
+  sel.innerHTML = '';
+  sel.add(new Option(teksSemua, ''));
+  opsi.forEach(v => sel.add(new Option(label ? label(v) : v, v)));
+  sel.value = opsi.includes(lama) ? lama : '';
+}
+
+// Pilihan bertahap: bulan hanya muncul setelah tahun dipilih, tanggal setelah bulan dipilih.
+function segarkanPilihan() {
+  isiSelect(fTahun, 'Semua tahun', unik(semua, t => tgl(t).y).reverse());
+  const bl = fTahun.value ? unik(semua.filter(t => tgl(t).y === fTahun.value), t => tgl(t).m) : [];
+  isiSelect(fBulan, 'Semua bulan', bl, v => BULAN[+v - 1] || v);
+  fBulan.disabled = !fTahun.value;
+  const hr = fBulan.value
+    ? unik(semua.filter(t => tgl(t).y === fTahun.value && tgl(t).m === fBulan.value), t => tgl(t).d) : [];
+  isiSelect(fTanggal, 'Semua tanggal', hr, v => String(+v));
+  fTanggal.disabled = !fBulan.value;
+}
+
+function lolos(t) {
+  const d = tgl(t);
+  if (fTahun.value && d.y !== fTahun.value) return false;
+  if (fBulan.value && d.m !== fBulan.value) return false;
+  if (fTanggal.value && d.d !== fTanggal.value) return false;
+  const q = cari.value.trim().toLowerCase();
+  return !q || String(t.ruas || '').toLowerCase().includes(q);
+}
+
+function terapkan() {
+  peta.closePopup();
+  segarkanPilihan();
+  const tampil = semua.filter(lolos);
+  // Urutan foto per ruas (untuk tombol sebelumnya/berikutnya) hanya dari foto yang lolos filter.
+  urutan = {};
+  tampil.forEach(t => (urutan[t.ruas] = urutan[t.ruas] || []).push(t));
+  Object.values(urutan).forEach(a => a.sort((p, q) => new Date(p.waktu) - new Date(q.waktu)));
+  grup.clearLayers();
+  garis.clearLayers();
+  Object.values(urutan).forEach(a => {
+    if (a.length > 1) L.polyline(a.map(t => [t.lat, t.lon]), { color: '#2f6f6a', weight: 3, opacity: .6, dashArray: '6 6' }).addTo(garis);
+  });
+  tampil.forEach(t => grup.addLayer(t._m));
+  if (tampil.length) peta.fitBounds(tampil.map(t => [t.lat, t.lon]), { padding: [50, 50], maxZoom: 17 });
+  const aktifFilter = fTahun.value || cari.value.trim();
+  $('hitung').textContent = tampil.length
+    ? `Menampilkan ${tampil.length} dari ${semua.length} foto · ${Object.keys(urutan).length} ruas`
+    : (aktifFilter ? 'Tidak ada foto yang cocok dengan filter.' : 'Belum ada foto.');
+}
+
+fTahun.onchange = () => { fBulan.value = ''; fTanggal.value = ''; terapkan(); };
+fBulan.onchange = () => { fTanggal.value = ''; terapkan(); };
+fTanggal.onchange = terapkan;
+let tunda = null;
+cari.oninput = () => { clearTimeout(tunda); tunda = setTimeout(terapkan, 350); };
+$('reset').onclick = () => { fTahun.value = ''; fBulan.value = ''; fTanggal.value = ''; cari.value = ''; terapkan(); };
+
 // --- Memuat data ---
 Promise.all(SUMBER.map(s => fetch(s.trim()).then(r => {
   if (!r.ok) throw new Error('Berkas ' + s + ' tidak ditemukan');
   return r.json();
 }))).then(daftar => {
-  const semua = [];
   daftar.forEach(sesi => (sesi.titik || []).forEach(t => { t._sesi = sesi; semua.push(t); }));
-  semua.forEach(t => (urutan[t.ruas] = urutan[t.ruas] || []).push(t));
-  Object.values(urutan).forEach(a => a.sort((p, q) => new Date(p.waktu) - new Date(q.waktu)));
-  Object.values(urutan).forEach(a => {
-    if (a.length > 1) L.polyline(a.map(t => [t.lat, t.lon]), { color: '#2f6f6a', weight: 3, opacity: .6, dashArray: '6 6' }).addTo(peta);
-  });
   semua.forEach(t => {
     t._m = L.marker([t.lat, t.lon], { icon: ikon(t.bearing) }).bindPopup(() => isiPopup(t));
-    grup.addLayer(t._m);
   });
-  if (semua.length) peta.fitBounds(semua.map(t => [t.lat, t.lon]), { padding: [50, 50], maxZoom: 17 });
-  document.getElementById('info').textContent = `${semua.length} titik foto · ${Object.keys(urutan).length} ruas`;
+  const ruas = unik(semua, t => t.ruas);
+  ruas.forEach(r => $('daftarRuas').appendChild(new Option(r)));
+  $('info').textContent = `${semua.length} titik foto · ${ruas.length} ruas`;
+  terapkan();
 }).catch(e => {
   document.getElementById('info').textContent = '';
   const p = document.createElement('div');

@@ -1,0 +1,47 @@
+{
+  "versi": 1,
+  "petugas": "Petugas Contoh 2",
+  "tanggal": "2026-10-15",
+  "titik": [
+    {
+      "id": "20261015-080000-001",
+      "foto": "contoh-2.jpg",
+      "lat": -2.545,
+      "lon": 112.948,
+      "bearing": 180,
+      "ruas": "Jl. Contoh C",
+      "catatan": "Contoh Oktober",
+      "waktu": "2026-10-15T08:00:00+07:00"
+    },
+    {
+      "id": "20261015-081500-002",
+      "foto": "contoh-3.jpg",
+      "lat": -2.5458,
+      "lon": 112.9488,
+      "bearing": 170,
+      "ruas": "Jl. Contoh C",
+      "catatan": "",
+      "waktu": "2026-10-15T08:15:00+07:00"
+    },
+    {
+      "id": "20261003-100000-003",
+      "foto": "contoh-1.jpg",
+      "lat": -2.539,
+      "lon": 112.956,
+      "bearing": 45,
+      "ruas": "Jl. Contoh B",
+      "catatan": "Contoh awal Oktober",
+      "waktu": "2026-10-03T10:00:00+07:00"
+    },
+    {
+      "id": "20251203-090000-004",
+      "foto": "contoh-4.jpg",
+      "lat": -2.537,
+      "lon": 112.944,
+      "bearing": 270,
+      "ruas": "Jl. Contoh D",
+      "catatan": "Contoh tahun lalu",
+      "waktu": "2025-12-03T09:00:00+07:00"
+    }
+  ]
+}
