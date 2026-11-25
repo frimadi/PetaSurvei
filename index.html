@@ -77,8 +77,8 @@
 const Q = new URLSearchParams(location.search);
 const KONFIG = {
   FOLDER_ID: '1e81Z8d6-zO5rN2xWbpSYBJLMH5r3vt0Z',   // folder SurveiJalan di Drive
-  API_KEY: '',      // opsi A
-  SKRIP_URL: '',    // opsi B: alamat /exec dari Apps Script
+  API_KEY: 'AIzaSyAC0bomHXd33psHhGobOAYzdIqaFm3W2P8',      // opsi A
+  SKRIP_URL: 'https://script.google.com/macros/s/AKfycbxBYS_0ixmrIKi18FBu6BjiY-k_z7gLLpAQ1J4ovE2F7iWc2Lo23a1SleEBmBoS-mF8/exec',    // opsi B: alamat /exec dari Apps Script
 };
 const API_KEY = (Q.get('key') || KONFIG.API_KEY).trim();
 const SKRIP_URL = (Q.get('skrip') || KONFIG.SKRIP_URL).trim();
