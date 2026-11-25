@@ -181,8 +181,8 @@
 const Q = new URLSearchParams(location.search);
 const KONFIG = {
   FOLDER_ID: '1e81Z8d6-zO5rN2xWbpSYBJLMH5r3vt0Z',   // folder SurveiJalan di Drive
-  API_KEY: 'AIzaSyAC0bomHXd33psHhGobOAYzdIqaFm3W2P8',      // opsi A
-  SKRIP_URL: 'https://script.google.com/macros/s/AKfycbxBYS_0ixmrIKi18FBu6BjiY-k_z7gLLpAQ1J4ovE2F7iWc2Lo23a1SleEBmBoS-mF8/exec',    // opsi B: alamat /exec dari Apps Script
+  API_KEY: '',      // opsi A
+  SKRIP_URL: '',    // opsi B: alamat /exec dari Apps Script
 };
 const API_KEY = (Q.get('key') || KONFIG.API_KEY).trim();
 const SKRIP_URL = (Q.get('skrip') || KONFIG.SKRIP_URL).trim();
@@ -208,6 +208,24 @@ const grup = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: f
 peta.addLayer(grup);
 const garis = L.layerGroup().addTo(peta);   // garis putus-putus antar foto dalam satu ruas
 
+// Waktu ditampilkan persis seperti saat foto diambil (jam lokal tersimpan), sama dengan filter tanggal dan aplikasi.
+const fmt = w => {
+  const m = String(w).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  return m ? `${+m[3]} ${BULAN[+m[2] - 1].slice(0, 3)} ${m[1]}, ${m[4]}.${m[5]}` : String(w);
+};
+
+// Penanda kerucut: bagian runcing menunjuk arah foto (0° = utara). Warna menurut kondisi jalan.
+const WARNA = { 'Baik': '#2e9e5b', 'Sedang': '#d4b02a', 'Rusak ringan': '#e0862b', 'Rusak berat': '#c8372d', 'Dalam pekerjaan': '#3b7ddd' };
+function ikon(bearing, kondisi) {
+  const w = WARNA[kondisi] || '#d9822b';
+  const svg = `<svg viewBox="-22 -22 44 44" style="transform:rotate(${bearing}deg)">
+    <path d="M0 0 L-12 -20 A23 23 0 0 1 12 -20 Z" fill="${w}" fill-opacity=".6" stroke="${w}" stroke-width="1.5"/>
+    <circle r="5" fill="#1d2b33" stroke="#fff" stroke-width="2"/></svg>`;
+  return L.divIcon({ html: svg, className: 'pin', iconSize: [44, 44], iconAnchor: [22, 22] });
+}
+
+// Alamat foto: dari Drive (bila ada ID-nya) atau dari folder foto/ untuk data contoh.
+function fotoUrl(t, lebar) {
   return t.fotoId ? `https://drive.google.com/thumbnail?id=${t.fotoId}&sz=w${lebar}` : 'foto/' + t.foto;
 }
 function pasangFoto(img, t, lebar) {
