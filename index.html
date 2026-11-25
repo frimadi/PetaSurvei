@@ -55,7 +55,7 @@
   <select id="fTahun" aria-label="Tahun"></select>
   <select id="fBulan" aria-label="Bulan"></select>
   <select id="fTanggal" aria-label="Tanggal"></select>
-  <input id="cari" type="search" list="daftarRuas" placeholder="Cari nama jalan…" aria-label="Cari nama jalan" autocomplete="off">
+  <input id="cari" type="search" list="daftarRuas" placeholder="Cari nama jalan atau ID ruas…" aria-label="Cari nama jalan" autocomplete="off">
   <datalist id="daftarRuas"></datalist>
   <button id="reset" type="button">Reset</button>
   <span id="hitung" aria-live="polite"></span>
@@ -77,8 +77,8 @@
 const Q = new URLSearchParams(location.search);
 const KONFIG = {
   FOLDER_ID: '1e81Z8d6-zO5rN2xWbpSYBJLMH5r3vt0Z',   // folder SurveiJalan di Drive
-  API_KEY: 'AIzaSyAC0bomHXd33psHhGobOAYzdIqaFm3W2P8',      // opsi A
-  SKRIP_URL: 'https://script.google.com/macros/s/AKfycbxBYS_0ixmrIKi18FBu6BjiY-k_z7gLLpAQ1J4ovE2F7iWc2Lo23a1SleEBmBoS-mF8/exec',    // opsi B: alamat /exec dari Apps Script
+  API_KEY: '',      // opsi A
+  SKRIP_URL: '',    // opsi B: alamat /exec dari Apps Script
 };
 const API_KEY = (Q.get('key') || KONFIG.API_KEY).trim();
 const SKRIP_URL = (Q.get('skrip') || KONFIG.SKRIP_URL).trim();
@@ -119,7 +119,7 @@ function pasangFoto(img, t, lebar) {
   img.src = fotoUrl(t, lebar);
 }
 // Ringkasan data satu titik: waktu, kondisi, STA, arah.
-const ringkas = t => [fmt(t.waktu), t.kondisi, t.sta ? 'STA ' + t.sta : '', `arah ${t.bearing}°`].filter(Boolean).join(' · ');
+const ringkas = t => [fmt(t.waktu), t.kondisi, t.sta ? 'STA ' + t.sta : '', `arah ${t.bearing}°`, t.idRuas || ''].filter(Boolean).join(' · ');
 
 let urutan = {}, aktif = null;   // urutan: ruas -> daftar titik berurutan waktu
 
@@ -211,7 +211,7 @@ function lolos(t) {
   if (fBulan.value && d.m !== fBulan.value) return false;
   if (fTanggal.value && d.d !== fTanggal.value) return false;
   const q = cari.value.trim().toLowerCase();
-  return !q || String(t.ruas || '').toLowerCase().includes(q);
+  return !q || String(t.ruas || '').toLowerCase().includes(q) || String(t.idRuas || '').toLowerCase().includes(q);
 }
 
 function terapkan() {
